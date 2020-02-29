@@ -45,7 +45,14 @@ from taucmdr.cf.compiler.host import CC, CXX, PGI, GNU
 
 LOGGER = logger.get_logger(__name__)
  
-REPOS = {None: 'http://ftp.gnu.org/gnu/binutils/binutils-2.27.tar.gz'}
+VERSION='2.27'
+
+REPOS = {None: ['http://ftp.gnu.org/gnu/binutils/binutils-'+VERSION+'.tar.gz', 
+                'https://mirrors.kernel.org/gnu/binutils/binutils-'+VERSION+'.tar.gz',
+                'http://mirror.rit.edu/gnu/binutils/binutils-'+VERSION+'.tar.gz',
+                'https://mirror.cyberbits.eu/gnu/binutils/binutils-'+VERSION+'.tar.gz',
+                'http://mirror.ufs.ac.za/gnu/binutils/binutils-'+VERSION+'.tar.gz',
+                'https://ftp.jaist.ac.jp/pub/GNU/binutils/binutils-'+VERSION+'.tar.gz']}
 
 LIBRARIES = {None: ['libbfd.a']}
 

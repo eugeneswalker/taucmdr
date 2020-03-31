@@ -37,6 +37,7 @@ TAU Commander also logs all status messages at the highest reporting level to
 a rotating debug file in the user's TAU Commander project prefix, typically "~/.taucmdr".
 """
 
+from __future__ import absolute_import
 import os
 import sys
 import errno
@@ -47,6 +48,7 @@ import string
 import logging
 from logging import handlers
 from datetime import datetime
+from six.moves import map
 from termcolor import termcolor
 from taucmdr import USER_PREFIX, TAUCMDR_VERSION
 
@@ -75,7 +77,7 @@ def get_terminal_size():
         if not dims:
             dims = default_width, default_height
     try:
-        dims = map(int, dims)
+        dims = list(map(int, dims))
     except ValueError:
         dims = default_width, default_height
     width = dims[0] if dims[0] >= 10 else default_width
@@ -105,9 +107,6 @@ def _get_term_size_windows():
         sizex = right - left + 1
         sizey = bottom - top + 1
         return sizex, sizey
-    else:
-        return None
-
 
 def _get_term_size_tput():
     """Discover the size of the user's terminal via `tput`_.

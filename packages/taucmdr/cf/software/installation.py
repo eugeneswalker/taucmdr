@@ -33,6 +33,7 @@ import os
 import multiprocessing
 from subprocess import CalledProcessError
 from contextlib import contextmanager
+import six
 from taucmdr import logger, util
 from taucmdr.error import ConfigurationError
 from taucmdr.progress import ProgressIndicator
@@ -187,8 +188,8 @@ class Installation(object):
             headers (dict): Dictionary of headers, indexed by architecture and OS, that must be installed.
         """
         # pylint: disable=too-many-arguments
-        assert isinstance(name, basestring)
-        assert isinstance(title, basestring)
+        assert isinstance(name, six.string_types)
+        assert isinstance(title, six.string_types)
         assert isinstance(sources, dict)
         assert isinstance(target_arch, Architecture)
         assert isinstance(target_os, OperatingSystem)
@@ -316,7 +317,7 @@ class Installation(object):
         LOGGER.info("Checking installed files...")
         with ProgressIndicator(""):
             for root, dirs, _ in os.walk(self.install_prefix):
-                paths.extend((os.path.join(root, x) for x in dirs))
+                paths.extend(os.path.join(root, x) for x in dirs)
         LOGGER.info("Setting file permissions...")
         with ProgressIndicator("", total_size=len(paths)) as progress_bar:
             for i, path in enumerate(paths):
@@ -380,15 +381,17 @@ class Installation(object):
                     except IOError:
                         pass
                 try:
-                    LOGGER.warning("Unable to acquire %s source package '%s'" % (self.name, self.src))
+                    LOGGER.warning("Unable to acquire %s source package '%s'", self.name, self.src)
                     self.src = self.srcs.pop(0)
-                    LOGGER.warning("falling back to '%s'" % self.src)
+                    LOGGER.warning("falling back to '%s'", self.src)
                 except IndexError:
                     self.src = None
             else:
                 return archive
         if self.src is None:
-            raise ConfigurationError("Unable to acquire %s source package '%s'" % (self.name, ', '.join(self.srcs_avail)))
+            raise ConfigurationError(
+                "Unable to acquire %s source package '%s'" % (self.name, ', '.join(self.srcs_avail))
+            )
         else:
             return archive
 
@@ -474,7 +477,7 @@ class Installation(object):
         Raises:
             SoftwarePackageError: Installation failed.
         """
-        for pkg in self.dependencies.itervalues():
+        for pkg in six.itervalues(self.dependencies):
             pkg.install(force_reinstall)
         if self.unmanaged or not force_reinstall:
             try:

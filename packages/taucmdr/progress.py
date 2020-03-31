@@ -30,12 +30,16 @@
 Show bars or spinners, possibly with instantaneous CPU load average.
 """
 
+from __future__ import absolute_import
+from __future__ import division
 import os
 import sys
 import threading
-import logging
 import itertools
 from datetime import datetime, timedelta
+import six
+from six.moves import range
+from six.moves import zip
 from taucmdr import logger
 from taucmdr.error import ConfigurationError
 
@@ -48,7 +52,7 @@ def _read_proc_stat_cpu():
         cpu_line = fin.readline()
     values = (float(x) for x in cpu_line.split()[1:])
     fields = 'user', 'nice', 'sys', 'idle', 'iowait', 'irq', 'sirq'
-    return dict(zip(fields, values))
+    return dict(list(zip(fields, values)))
 
 def _proc_stat_cpu_load_average():
     if not hasattr(_proc_stat_cpu_load_average, 'prev'):
@@ -58,8 +62,8 @@ def _proc_stat_cpu_load_average():
     if prev and cur:
         prev_idle = prev['idle'] + prev['iowait']
         cur_idle = cur['idle'] + cur['iowait']
-        prev_total = sum(prev.itervalues())
-        cur_total = sum(cur.itervalues())
+        prev_total = sum(six.itervalues(prev))
+        cur_total = sum(six.itervalues(cur))
         diff_total = cur_total - prev_total
         diff_idle = cur_idle - prev_idle
         _proc_stat_cpu_load_average.prev = cur
@@ -252,15 +256,15 @@ class ProgressIndicator(object):
         label, tstart, _ = self._phases[-1]
         tdelta = (datetime.now() - tstart).total_seconds()
         self._line_reset()
-        if label =="":
-            self._line_append("%0.1f seconds %s" % (tdelta, self._spinner.next()))
+        if label == "":
+            self._line_append("%0.1f seconds %s" % (tdelta, next(self._spinner)))
         else:
-            self._line_append("%s: %0.1f seconds %s" % (label, tdelta, self._spinner.next()))
+            self._line_append("%s: %0.1f seconds %s" % (label, tdelta, next(self._spinner)))
         show_bar = self.total_size > 0
         if self.show_cpu and self._line_remaining > 40:
             cpu_load = min(load_average(), 1.0)
             self._line_append("[CPU: %0.1f " % (100*cpu_load))
-            width = (self._line_remaining/4) if show_bar else (self._line_remaining-2)
+            width = (self._line_remaining // 4) if show_bar else (self._line_remaining-2)
             self._draw_bar(cpu_load, width, '|', 'white', 'on_white')
             self._line_append("]")
         if show_bar and self._line_remaining > 20:
@@ -282,7 +286,7 @@ class ProgressIndicator(object):
 
     def complete(self):
         active = len(self._phases)
-        for _ in xrange(active):
+        for _ in range(active):
             self.pop_phase()
         if self.auto_refresh:
             self._exiting.set()

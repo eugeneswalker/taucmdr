@@ -30,6 +30,8 @@
 Handles system manipulation and status tasks, e.g. subprocess management or file creation.
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
 import re
 import os
 import sys
@@ -38,17 +40,20 @@ import atexit
 import subprocess
 import errno
 import shutil
-import urllib
 import pkgutil
 import tarfile
 import gzip
 import tempfile
-import urlparse
 import hashlib
 from collections import deque
 from contextlib import contextmanager
 from zipimport import zipimporter
 from zipfile import ZipFile
+import six
+import six.moves.urllib.request # pylint: disable=import-error
+import six.moves.urllib.parse
+import six.moves.urllib.error
+from six.moves import range
 from termcolor import termcolor
 from unidecode import unidecode
 from taucmdr import logger
@@ -153,15 +158,16 @@ def rmtree(path, ignore_errors=False, onerror=None, attempts=5):
         onerror: Callable that accepts three parameters: function, path, and excinfo.  See :any:shutil.rmtree.
         attempts (int): Number of times to repeat shutil.rmtree before giving up.
     """
-    if not os.path.exists(path):
-        return
-    for i in xrange(attempts-1):
-        try:
-            return shutil.rmtree(path)
-        except Exception as err:        # pylint: disable=broad-except
-            LOGGER.warning("Unexpected error: %s", err)
-            time.sleep(i+1)
-    shutil.rmtree(path, ignore_errors, onerror)
+    if os.path.exists(path):
+        for i in range(attempts-1):
+            try:
+                return shutil.rmtree(path)
+            except Exception as err:        # pylint: disable=broad-except
+                LOGGER.warning("Unexpected error: %s", err)
+                time.sleep(i+1)
+        shutil.rmtree(path, ignore_errors, onerror)
+    else:
+        return None
 
 
 @contextmanager
@@ -193,7 +199,7 @@ def which(program, use_cached=True):
     """
     if not program:
         return None
-    assert isinstance(program, basestring)
+    assert isinstance(program, six.string_types)
     if use_cached:
         try:
             return _WHICH_CACHE[program]
@@ -255,7 +261,7 @@ def download(src, dest, timeout=8):
             raise IOError("Failed to download '%s'" % src)
         with ProgressIndicator("Downloading") as progress_bar:
             try:
-                urllib.urlretrieve(src, dest, reporthook=progress_bar.update)
+                six.moves.urllib.request.urlretrieve(src, dest, reporthook=progress_bar.update)
             except Exception as err:
                 LOGGER.warning("urllib failed to download '%s': %s", src, err)
                 raise IOError("Failed to download '%s'" % src)
@@ -435,7 +441,7 @@ def path_accessible(path, mode='r'):
     Returns:
         True if the file exists and can be opened in the specified mode, False otherwise.
     """
-    assert mode and set(mode) <= set(('r', 'w'))
+    assert mode and set(mode) <= {'r', 'w'}
     if not os.path.exists(path):
         return False
     if os.path.isdir(path):
@@ -462,11 +468,13 @@ def path_accessible(path, mode='r'):
         return False
 
 @contextmanager
-def _null_context(label):
+def _null_context():
     yield
 
 
-def create_subprocess(cmd, cwd=None, env=None, stdout=True, log=True, show_progress=False, error_buf=50, record_output=False):
+def create_subprocess(
+        cmd, cwd=None, env=None, stdout=True, log=True, show_progress=False, error_buf=50, record_output=False
+):
     """Create a subprocess.
 
     See :any:`subprocess.Popen`.
@@ -487,7 +495,7 @@ def create_subprocess(cmd, cwd=None, env=None, stdout=True, log=True, show_progr
     """
     subproc_env = dict(os.environ)
     if env:
-        for key, val in env.iteritems():
+        for key, val in six.iteritems(env):
             if val is None:
                 subproc_env.pop(key, None)
                 _heavy_debug("unset %s", key)
@@ -509,7 +517,7 @@ def create_subprocess(cmd, cwd=None, env=None, stdout=True, log=True, show_progr
                 if log:
                     LOGGER.debug(line[:-1])
                 if stdout:
-                    print line,
+                    print(line, end=' ')
                 if error_buf:
                     buf.append(line)
                 if record_output:
@@ -519,11 +527,10 @@ def create_subprocess(cmd, cwd=None, env=None, stdout=True, log=True, show_progr
     LOGGER.debug("%s returned %d", cmd, retval)
     if retval and error_buf and not stdout:
         for line in buf:
-            print line,
+            print(line, end=' ')
     if record_output:
         return retval, output
-    else:
-        return retval
+    return retval
 
 
 def get_command_output(cmd):
@@ -570,7 +577,7 @@ def page_output(output_string):
     """
     output_string = unidecode(output_string.decode('utf-8'))
     if os.environ.get('__TAUCMDR_DISABLE_PAGER__', False):
-        print output_string
+        print(output_string)
     else:
         pager_cmd = os.environ.get('PAGER', 'less -F -R -S -X -K').split(' ')
         proc = subprocess.Popen(pager_cmd, stdin=subprocess.PIPE)
@@ -621,7 +628,7 @@ def parse_bool(value, additional_true=None, additional_false=None):
         true_values.extend(additional_true)
     if additional_false:
         false_values.extend(additional_false)
-    if isinstance(value, basestring):
+    if isinstance(value, six.string_types):
         value = value.lower()
         if value in true_values:
             return True
@@ -641,7 +648,7 @@ def is_url(url):
     Returns:
         bool: True if `url` is a URL, False otherwise.
     """
-    return bool(len(urlparse.urlparse(url).scheme))
+    return bool(len(six.moves.urllib.parse.urlparse(url).scheme))
 
 
 def camelcase(name):
@@ -688,8 +695,7 @@ def color_text(text, *args, **kwargs):
     """
     if sys.stdout.isatty():
         return termcolor.colored(text, *args, **kwargs)
-    else:
-        return text
+    return text
 
 
 def uncolor_text(text):
@@ -749,7 +755,7 @@ def _zipimporter_iter_modules(archive, path):
 
 
 def _iter_modules(paths, prefix):
-    # pylint: disable=no-member,redefined-variable-type
+    # pylint: disable=no-member
     yielded = {}
     for path in paths:
         importer = pkgutil.get_importer(path)

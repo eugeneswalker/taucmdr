@@ -27,6 +27,7 @@
 #
 """``build`` subcommand."""
 
+from __future__ import absolute_import
 import os
 from taucmdr.cli import arguments
 from taucmdr.cli.command import AbstractCommand
@@ -90,4 +91,6 @@ class BuildCommand(AbstractCommand):
         return expr.managed_build(args.cmd, args.cmd_args)
 
 
-COMMAND = BuildCommand(__name__, help_page_fmt=HELP_PAGE, summary_fmt="Instrument programs during compilation and/or linking.")
+COMMAND = BuildCommand(
+        __name__, help_page_fmt=HELP_PAGE, summary_fmt="Instrument programs during compilation and/or linking."
+)
